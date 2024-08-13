@@ -258,7 +258,7 @@ if __name__ == "__main__":
     processor = VideoEditorProcessor(
         test_folder_path,
         output_folder_path,
-        further_output_folder_path,slas
+        further_output_folder_path,
         test_mode=False,
     )
     processor.process_data()
