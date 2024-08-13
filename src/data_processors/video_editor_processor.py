@@ -4,6 +4,7 @@ from datetime import datetime
 import nltk
 from slugify import slugify
 from src.data_processors.base_processor import BaseDataProcessor
+from src.utils.content_cleaner import ContentCleaner
 from src.utils.file_utils import ensure_dir
 
 nltk.download("punkt", quiet=True)
@@ -32,7 +33,6 @@ class VideoEditorProcessor(BaseDataProcessor):
     Give the edited text with strikethrough formatting.
     </output>
     """
-
     MAX_PARAGRAPH_LENGTH = 500
     WORD_PERCENTAGE_THRESHOLD = 30
 
@@ -42,6 +42,7 @@ class VideoEditorProcessor(BaseDataProcessor):
         self.output_folder = output_folder
         self.intermediate_folder = intermediate_folder
         self.test_mode = test_mode
+        self.content_cleaner = ContentCleaner()  # Add this line
 
         ensure_dir(self.output_folder)
         ensure_dir(self.intermediate_folder)
@@ -60,7 +61,7 @@ class VideoEditorProcessor(BaseDataProcessor):
         with open(file_path, "r") as f:
             content = f.read()
 
-        cleaned_content = self._clean_content(content)
+        cleaned_content = self.content_cleaner.clean_content(content)  # Update this line
 
         slugified_filename = slugify(f"cleaned_{os.path.basename(file_path)}")
         new_file_path = os.path.join(self.intermediate_folder, f"{slugified_filename}.md")
@@ -68,32 +69,6 @@ class VideoEditorProcessor(BaseDataProcessor):
         with open(new_file_path, "w") as f:
             f.write(cleaned_content)
         print(f"Cleaned file saved to {new_file_path}")
-
-    def _clean_content(self, content):
-        # Remove timestamps in the format [00:00:00]
-        content = re.sub(r"\[\d{2}:\d{2}:\d{2}\]", "", content)
-
-        # Normalize strikethrough text by removing extra spaces
-        content = re.sub(r"~~\s+", "~~", content)  # Remove spaces after ~~
-        content = re.sub(r"\s+~~", "~~", content)  # Remove spaces before ~~
-
-        # Ensure proper spacing around strikethrough text
-        content = re.sub(r"(?<!\s)~~(.*?)~~(?! )", r" ~~\1~~ ", content)
-
-        # Remove empty strikethrough tags
-        content = re.sub(r"~~~~", "", content)
-
-        # Remove speaker names and any content between **<>**
-        content = re.sub(r"\*\*.*?:\*\*", "", content)
-        content = re.sub(r"<.*?>", "", content)
-
-        # Remove any text between "#" and new line (single-line comments)
-        content = re.sub(r"#.*?\n", "", content)
-
-        # Remove any text between "##" and new line (section headers)
-        content = re.sub(r"##.*?\n", "", content)
-
-        return content
 
     def generate_paragraphs(self):
         all_paragraphs = {}
