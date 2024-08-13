@@ -3,11 +3,12 @@ import re
 from datetime import datetime
 
 import nltk
-import slugify
+from slugify import slugify
 
-from base import BaseDataCollection
+from src.data_processors.base_processor import BaseDataProcessor
+from src.utils.file_utils import ensure_dir
 
-nltk.download("punkt")
+nltk.download("punkt", quiet=True)
 
 PROMPT = """
 <role>
@@ -33,29 +34,30 @@ Give the edited text with strikethrough formatting.
 </output>
 """
 
-
-class Cleanup(BaseDataCollection):
+class VideoEditorProcessor(BaseDataProcessor):
     def __init__(
         self,
-        folder_path,
-        output_folder_path,
-        further_output_folder_path,
+        input_folder,
+        output_folder,
+        intermediate_folder,
         test_mode=False,
     ):
         super().__init__()
-        self.folder_path = folder_path
-        self.output_folder_path = output_folder_path
-        self.further_output_folder_path = further_output_folder_path
-
-        if not os.path.exists(self.output_folder_path):
-            os.makedirs(self.output_folder_path)
-        if not os.path.exists(self.further_output_folder_path):
-            os.makedirs(self.further_output_folder_path)
-
+        self.input_folder = input_folder
+        self.output_folder = output_folder
+        self.intermediate_folder = intermediate_folder
         self.test_mode = test_mode
 
+        ensure_dir(self.output_folder)
+        ensure_dir(self.intermediate_folder)
+
+    def process_data(self):
+        self.remove_timestamps_and_save()
+        paragraphs_dict = self.generate_paragraphs()
+        self.get_data(paragraphs_dict)
+
     def remove_timestamps_and_save(self):
-        for root, dirs, files in os.walk(self.folder_path):
+        for root, dirs, files in os.walk(self.input_folder):
             for file in files:
                 file_path = os.path.join(root, file)
                 with open(file_path, "r") as f:
@@ -83,10 +85,10 @@ class Cleanup(BaseDataCollection):
                 # Remove any text between "##" and new line
                 cleaned_content = re.sub(r"##.*?\n", "", cleaned_content)
 
-                # Save the cleaned content to a new file in the specified output directory
-                slugified_filename = slugify.slugify(f"cleaned_{file}")
+                # Save the cleaned content to a new file in the intermediate folder
+                slugified_filename = slugify(f"cleaned_{file}")
                 new_file_path = os.path.join(
-                    self.output_folder_path, f"{slugified_filename}.md"
+                    self.intermediate_folder, f"{slugified_filename}.md"
                 )
                 with open(new_file_path, "w") as f:
                     f.write(cleaned_content)
@@ -95,7 +97,7 @@ class Cleanup(BaseDataCollection):
     def generate_paragraphs(self):
         MAX_PARAGRAPH_LENGTH = 500
         all_paragraphs = {}
-        for root, dirs, files in os.walk(self.output_folder_path):
+        for root, dirs, files in os.walk(self.intermediate_folder):
             for file in files:
                 file_path = os.path.join(root, file)
                 with open(file_path, "r") as f:
@@ -271,17 +273,17 @@ class Cleanup(BaseDataCollection):
 
 if __name__ == "__main__":
     # Example folder paths
-    test_folder_path = "/home/adi/Repos/win/finetuning/generated_data/editor/original"
+    test_folder_path = "/Users/adi/Documents/GitHub/data/editor/original"
     output_folder_path = (
-        "/home/adi/Repos/win/finetuning/generated_data/editor/generated"
+        "/Users/adi/Documents/GitHub/data/editor/generated"
     )
     further_output_folder_path = (
-        "/home/adi/Repos/win/finetuning/generated_data/editor/further_processed"
+        "/Users/adi/Documents/GitHub/data/editor/further_processed"
     )
     date = datetime.now().strftime("%b%d_%H").lower()
-    file_path = f"/home/adi/Repos/win/finetuning/generated_data/editor/finetune/editor_{date}.jsonl"
+    file_path = f"/Users/adi/Documents/GitHub/data/editor/finetune/editor_{date}.jsonl"
 
-    cleanup_instance = Cleanup(
+    cleanup_instance = VideoEditorProcessor(
         test_folder_path,
         output_folder_path,
         further_output_folder_path,
