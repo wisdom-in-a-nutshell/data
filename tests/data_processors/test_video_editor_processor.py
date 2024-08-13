@@ -2,8 +2,14 @@ import pytest
 from src.data_processors.video_editor_processor import VideoEditorProcessor
 
 @pytest.fixture
-def processor():
-    return VideoEditorProcessor()
+def processor(tmp_path):
+    input_folder = tmp_path / "input"
+    output_folder = tmp_path / "output"
+    intermediate_folder = tmp_path / "intermediate"
+    input_folder.mkdir()
+    output_folder.mkdir()
+    intermediate_folder.mkdir()
+    return VideoEditorProcessor(str(input_folder), str(output_folder), str(intermediate_folder))
 
 def test_remove_timestamps(processor):
     input_text = "00:00:01 Hello 00:00:05 World"
@@ -25,7 +31,7 @@ def test_process_file(processor, tmp_path):
     input_file.write_text("00:00:01 Hello 00:00:05 World\n\nUm, this is a test.")
     
     output_file = tmp_path / "output.jsonl"
-    processor.process_file(str(input_file), str(output_file))
+    processor.process_data(str(input_file), str(output_file))
     
     assert output_file.exists()
     content = output_file.read_text()
