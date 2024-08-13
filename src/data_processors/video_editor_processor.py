@@ -9,33 +9,35 @@ from src.utils.file_utils import ensure_dir
 
 nltk.download("punkt", quiet=True)
 
+PROMPT = """
+<role>
+You are an AI language model acting as an editor to refine podcast clip transcripts for smooth and coherent video creation. Your task is to remove unnecessary elements such as filler words, repeated words, phrases, and language that digress from the main content without contributing to the core message. The goal is to maintain the overall flow and understanding of the content.
+</role>
+
+<steps>
+1. Read the text and mark parts to remove using ~~strikethrough~~ (double tildes)
+2. Focus on taking out filler words, repeated words, and off-topic parts
+3. Make sure the edited text matches the original, with marked parts for removal
+4. Don't add, swap, or move words
+5. Keep the total word count the same for input and output
+6. Give the edited text with strikethrough, without comments
+</steps>
+
+<key_points>
+- Strikethrough helps guide precise video editing
+- Keeping word count is key for text accuracy and correct editing
+</key_points>
+
+<output>
+Give the edited text with strikethrough formatting.
+</output>
+"""
+
+MAX_PARAGRAPH_LENGTH = 500
+
+WORD_PERCENTAGE_THRESHOLD = 30
+
 class VideoEditorProcessor(BaseDataProcessor):
-    PROMPT = """
-    <role>
-    You are an AI language model acting as an editor to refine podcast clip transcripts for smooth and coherent video creation. Your task is to remove unnecessary elements such as filler words, repeated words, phrases, and language that digress from the main content without contributing to the core message. The goal is to maintain the overall flow and understanding of the content.
-    </role>
-
-    <steps>
-    1. Read the text and mark parts to remove using ~~strikethrough~~ (double tildes)
-    2. Focus on taking out filler words, repeated words, and off-topic parts
-    3. Make sure the edited text matches the original, with marked parts for removal
-    4. Don't add, swap, or move words
-    5. Keep the total word count the same for input and output
-    6. Give the edited text with strikethrough, without comments
-    </steps>
-
-    <key_points>
-    - Strikethrough helps guide precise video editing
-    - Keeping word count is key for text accuracy and correct editing
-    </key_points>
-
-    <output>
-    Give the edited text with strikethrough formatting.
-    </output>
-    """
-    MAX_PARAGRAPH_LENGTH = 500
-    WORD_PERCENTAGE_THRESHOLD = 30
-
     def __init__(self, input_folder, output_folder, intermediate_folder, test_mode=False):
         super().__init__()
         self.input_folder = input_folder
@@ -105,7 +107,7 @@ class VideoEditorProcessor(BaseDataProcessor):
             current_paragraph.append(sentence)
             word_count += len(words)
 
-            if word_count > self.MAX_PARAGRAPH_LENGTH and not in_strikethrough:
+            if word_count > MAX_PARAGRAPH_LENGTH and not in_strikethrough:
                 paragraphs.append(" ".join(current_paragraph))
                 current_paragraph = []
                 word_count = 0
@@ -137,7 +139,7 @@ class VideoEditorProcessor(BaseDataProcessor):
 
         strikethrough_percentage, _ = self._calculate_strikethrough_percentage(paragraph_data["output"])
 
-        if strikethrough_percentage < self.WORD_PERCENTAGE_THRESHOLD:
+        if strikethrough_percentage < WORD_PERCENTAGE_THRESHOLD:
             self._process_valid_paragraph(paragraph_data)
 
     def _get_context_before(self, paragraphs, index):
@@ -156,7 +158,7 @@ class VideoEditorProcessor(BaseDataProcessor):
 
         if self._is_valid_for_processing(merged_input, merged_output):
             self.append_data(
-                instruction=self.PROMPT,
+                instruction=PROMPT,
                 input_data=merged_input,
                 response=merged_output,
             )
