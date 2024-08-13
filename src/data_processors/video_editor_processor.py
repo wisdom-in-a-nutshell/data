@@ -38,58 +38,46 @@ MAX_PARAGRAPH_LENGTH = 500
 WORD_PERCENTAGE_THRESHOLD = 30
 
 class VideoEditorProcessor(BaseDataProcessor):
-    def __init__(self, input_folder, output_folder, intermediate_folder, test_mode=False):
+    def __init__(self, input_folder, output_folder, test_mode=False):
         super().__init__()
         self.input_folder = input_folder
         self.output_folder = output_folder
-        self.intermediate_folder = intermediate_folder
-        self.test_mode = test_mode
-        self.content_cleaner = ContentCleaner()  # Add this line
+        self.content_cleaner = ContentCleaner()
 
         ensure_dir(self.output_folder)
-        ensure_dir(self.intermediate_folder)
 
     def process_data(self):
-        self.remove_timestamps_and_save()
-        paragraphs_dict = self.generate_paragraphs()
+        processed_files = self.process_and_clean_files()
+        paragraphs_dict = self.generate_paragraphs(processed_files)
         self.process_paragraphs(paragraphs_dict)
 
-    def remove_timestamps_and_save(self):
+    def process_and_clean_files(self):
+        processed_files = {}
         for root, dirs, files in os.walk(self.input_folder):
             for file in files:
-                self._process_single_file(os.path.join(root, file))
+                file_path = os.path.join(root, file)
+                processed_content = self._process_single_file(file_path)
+                processed_files[file] = processed_content
+        return processed_files
 
     def _process_single_file(self, file_path):
         with open(file_path, "r") as f:
             content = f.read()
 
-        cleaned_content = self.content_cleaner.clean_content(content)  # Update this line
+        cleaned_content = self.content_cleaner.clean_content(content)
+        return cleaned_content
 
-        slugified_filename = slugify(f"cleaned_{os.path.basename(file_path)}")
-        new_file_path = os.path.join(self.intermediate_folder, f"{slugified_filename}.md")
-        
-        with open(new_file_path, "w") as f:
-            f.write(cleaned_content)
-        print(f"Cleaned file saved to {new_file_path}")
-
-    def generate_paragraphs(self):
+    def generate_paragraphs(self, processed_files):
         all_paragraphs = {}
-        for root, dirs, files in os.walk(self.intermediate_folder):
-            for file in files:
-                file_path = os.path.join(root, file)
-                all_paragraphs.update(self._process_file_paragraphs(file_path))
-                if self.test_mode:
-                    break
+        for file, content in processed_files.items():
+            all_paragraphs.update(self._process_file_paragraphs(file, content))
         return all_paragraphs
 
-    def _process_file_paragraphs(self, file_path):
-        with open(file_path, "r") as f:
-            content = f.read()
-
+    def _process_file_paragraphs(self, file, content):
         sentences = [s.strip() for s in nltk.sent_tokenize(content) if s.strip()]
         paragraphs = self._split_into_paragraphs(sentences)
 
-        return {f"{os.path.basename(file_path)}_normal": paragraphs}
+        return {f"{file}_normal": paragraphs}
 
     def _split_into_paragraphs(self, sentences):
         paragraphs = []
@@ -236,7 +224,6 @@ if __name__ == "__main__":
         test_folder_path,
         output_folder_path,
         further_output_folder_path,
-        test_mode=False,
     )
     processor.process_data()
     processor.generate_jsonl(file_path, huggingface_format=False)
