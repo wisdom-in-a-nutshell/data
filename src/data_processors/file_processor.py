@@ -11,9 +11,9 @@ class FileProcessor:
 
     def process_and_clean_files(self):
         processed_files = {}
-        for root, dirs, files in os.walk(self.input_folder):
-            for file in files:
-                file_path = os.path.join(root, file)
+        for file in os.listdir(self.input_folder):
+            if os.path.isfile(os.path.join(self.input_folder, file)):
+                file_path = os.path.join(self.input_folder, file)
                 processed_content = self._process_single_file(file_path)
                 processed_files[file] = processed_content
         return processed_files
@@ -40,9 +40,9 @@ class FileProcessor:
         # Remove empty strikethrough tags
         content = re.sub(r"~~~~", "", content)
 
-        # Remove speaker names and any content between **<>**
-        content = re.sub(r"\*\*.*?:\*\*", "", content)
-        content = re.sub(r"<.*?>", "", content)
+        # # Remove speaker names and any content between **<>**
+        # content = re.sub(r"\*\*.*?:\*\*", "", content)
+        # content = re.sub(r"<.*?>", "", content)
 
         # Remove any text between "#" and new line (single-line comments)
         content = re.sub(r"#.*?$", "", content, flags=re.MULTILINE)

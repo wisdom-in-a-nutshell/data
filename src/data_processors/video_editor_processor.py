@@ -9,7 +9,11 @@ from src.utils.file_utils import ensure_dir
 nltk.download("punkt", quiet=True)
 
 class VideoEditorProcessor(BaseDataProcessor):
-    WORD_PERCENTAGE_THRESHOLD = 30
+    # Constants
+    WORD_PERCENTAGE_THRESHOLD = 90
+    MAX_WORDS_PER_PARAGRAPH = 12000
+    CONTEXT_WORD_LIMIT = 20
+    STRIKETHROUGH_MARKER = "~~"
 
     PROMPT = """
     <role>
@@ -35,14 +39,11 @@ class VideoEditorProcessor(BaseDataProcessor):
     </output>
     """
 
-    def __init__(self, input_folder, output_folder, test_mode=False):
+    def __init__(self, input_folder):
         super().__init__()
         self.input_folder = input_folder
-        self.output_folder = output_folder
         self.file_processor = FileProcessor(input_folder)
         self.paragraph_generator = ParagraphGenerator()
-
-        ensure_dir(self.output_folder)
 
     def process_data(self):
         processed_files = self.file_processor.process_and_clean_files()
@@ -87,22 +88,22 @@ class VideoEditorProcessor(BaseDataProcessor):
 
     def _is_valid_for_processing(self, merged_input, merged_output):
         total_words_merged_input = len(merged_input.split())
-        strikethrough_count_in_output = merged_output.count("~~")
-        strikethrough_count_in_input = merged_input.count("~~")
+        strikethrough_count_in_output = merged_output.count(self.STRIKETHROUGH_MARKER)
+        strikethrough_count_in_input = merged_input.count(self.STRIKETHROUGH_MARKER)
 
         return (
             strikethrough_count_in_output % 2 == 0
             and strikethrough_count_in_input == 0
-            and total_words_merged_input < 2000
+            and total_words_merged_input < self.MAX_WORDS_PER_PARAGRAPH
         )
 
     @staticmethod
     def _clean_strikethrough(text):
-        return re.sub(r"~~", "", text)
+        return re.sub(rf"{VideoEditorProcessor.STRIKETHROUGH_MARKER}", "", text)
 
     @staticmethod
     def _calculate_strikethrough_percentage(text):
-        strikethrough_texts = re.findall(r"~~(.*?)~~", text)
+        strikethrough_texts = re.findall(rf"{VideoEditorProcessor.STRIKETHROUGH_MARKER}(.*?){VideoEditorProcessor.STRIKETHROUGH_MARKER}", text)
         strikethrough_word_count = sum(len(text.split()) for text in strikethrough_texts)
         total_word_count = len(text.split())
 
@@ -113,7 +114,7 @@ class VideoEditorProcessor(BaseDataProcessor):
         return percentage, total_word_count
 
     def _remove_strikethrough_text(self, text):
-        cleaned_text = re.sub(r"~~(.*?)~~", "", text)
+        cleaned_text = re.sub(rf"{self.STRIKETHROUGH_MARKER}(.*?){self.STRIKETHROUGH_MARKER}", "", text)
         cleaned_text = re.sub(r"\s+", " ", cleaned_text)
         return cleaned_text.strip()
 
@@ -150,7 +151,7 @@ class VideoEditorProcessor(BaseDataProcessor):
             else:
                 relevant_sentences.insert(0, sentence)
             
-            if word_count + len(words) > 10:
+            if word_count + len(words) > self.CONTEXT_WORD_LIMIT:
                 break
             word_count += len(words)
         
@@ -159,15 +160,11 @@ class VideoEditorProcessor(BaseDataProcessor):
 if __name__ == "__main__":
     # Example usage
     test_folder_path = "/Users/adi/Documents/GitHub/data/editor/original"
-    output_folder_path = "/Users/adi/Documents/GitHub/data/editor/generated"
-    further_output_folder_path = "/Users/adi/Documents/GitHub/data/editor/further_processed"
     date = datetime.now().strftime("%b%d_%H").lower()
     file_path = f"/Users/adi/Documents/GitHub/data/editor/finetune/editor_{date}.jsonl"
 
     processor = VideoEditorProcessor(
-        test_folder_path,
-        output_folder_path,
-        further_output_folder_path,
+        input_folder=test_folder_path,
     )
     processor.process_data()
     processor.generate_jsonl(file_path, huggingface_format=False)

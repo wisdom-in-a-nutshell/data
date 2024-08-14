@@ -1,7 +1,8 @@
 import nltk
+import re
 
 class ParagraphGenerator:
-    MAX_PARAGRAPH_LENGTH = 500
+    MAX_PARAGRAPH_LENGTH = 1000
 
     def __init__(self):
         self.max_paragraph_length = self.MAX_PARAGRAPH_LENGTH
@@ -22,14 +23,24 @@ class ParagraphGenerator:
         current_paragraph = []
         word_count = 0
         in_strikethrough = False
+        last_speaker = None
 
         for sentence in sentences:
             sentence_words = sentence.split()
             sentence_word_count = len(sentence_words)
 
+            # Check for speaker tag
+            speaker_match = re.match(r'\*\*(.*?):\*\*', sentence)
+            if speaker_match:
+                last_speaker = speaker_match.group(1)
+
             if word_count + sentence_word_count > self.max_paragraph_length and not in_strikethrough:
+                # Add the current paragraph to the list
                 paragraphs.append(" ".join(current_paragraph))
+                # Start a new paragraph, adding the last known speaker if available
                 current_paragraph = []
+                if last_speaker and not sentence.startswith(f"**{last_speaker}:**"):
+                    current_paragraph.append(f"**{last_speaker}:**")
                 word_count = 0
 
             current_paragraph.append(sentence)
