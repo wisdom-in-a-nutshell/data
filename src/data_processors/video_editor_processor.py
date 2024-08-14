@@ -1,109 +1,53 @@
-import os
 import re
 from datetime import datetime
 import nltk
-from slugify import slugify
 from src.data_processors.base_processor import BaseDataProcessor
-from src.utils.content_cleaner import ContentCleaner
+from src.data_processors.file_processor import FileProcessor
+from src.data_processors.paragraph_generator import ParagraphGenerator
 from src.utils.file_utils import ensure_dir
 
 nltk.download("punkt", quiet=True)
 
-PROMPT = """
-<role>
-You are an AI language model acting as an editor to refine podcast clip transcripts for smooth and coherent video creation. Your task is to remove unnecessary elements such as filler words, repeated words, phrases, and language that digress from the main content without contributing to the core message. The goal is to maintain the overall flow and understanding of the content.
-</role>
-
-<steps>
-1. Read the text and mark parts to remove using ~~strikethrough~~ (double tildes)
-2. Focus on taking out filler words, repeated words, and off-topic parts
-3. Make sure the edited text matches the original, with marked parts for removal
-4. Don't add, swap, or move words
-5. Keep the total word count the same for input and output
-6. Give the edited text with strikethrough, without comments
-</steps>
-
-<key_points>
-- Strikethrough helps guide precise video editing
-- Keeping word count is key for text accuracy and correct editing
-</key_points>
-
-<output>
-Give the edited text with strikethrough formatting.
-</output>
-"""
-
-MAX_PARAGRAPH_LENGTH = 500
-
-WORD_PERCENTAGE_THRESHOLD = 30
-
 class VideoEditorProcessor(BaseDataProcessor):
+    WORD_PERCENTAGE_THRESHOLD = 30
+
+    PROMPT = """
+    <role>
+    You are an AI language model acting as an editor to refine podcast clip transcripts for smooth and coherent video creation. Your task is to remove unnecessary elements such as filler words, repeated words, phrases, and language that digress from the main content without contributing to the core message. The goal is to maintain the overall flow and understanding of the content.
+    </role>
+
+    <steps>
+    1. Read the text and mark parts to remove using ~~strikethrough~~ (double tildes)
+    2. Focus on taking out filler words, repeated words, and off-topic parts
+    3. Make sure the edited text matches the original, with marked parts for removal
+    4. Don't add, swap, or move words
+    5. Keep the total word count the same for input and output
+    6. Give the edited text with strikethrough, without comments
+    </steps>
+
+    <key_points>
+    - Strikethrough helps guide precise video editing
+    - Keeping word count is key for text accuracy and correct editing
+    </key_points>
+
+    <output>
+    Give the edited text with strikethrough formatting.
+    </output>
+    """
+
     def __init__(self, input_folder, output_folder, test_mode=False):
         super().__init__()
         self.input_folder = input_folder
         self.output_folder = output_folder
-        self.content_cleaner = ContentCleaner()
+        self.file_processor = FileProcessor(input_folder)
+        self.paragraph_generator = ParagraphGenerator()
 
         ensure_dir(self.output_folder)
 
     def process_data(self):
-        processed_files = self.process_and_clean_files()
-        paragraphs_dict = self.generate_paragraphs(processed_files)
+        processed_files = self.file_processor.process_and_clean_files()
+        paragraphs_dict = self.paragraph_generator.generate_paragraphs(processed_files)
         self.process_paragraphs(paragraphs_dict)
-
-    def process_and_clean_files(self):
-        processed_files = {}
-        for root, dirs, files in os.walk(self.input_folder):
-            for file in files:
-                file_path = os.path.join(root, file)
-                processed_content = self._process_single_file(file_path)
-                processed_files[file] = processed_content
-        return processed_files
-
-    def _process_single_file(self, file_path):
-        with open(file_path, "r") as f:
-            content = f.read()
-
-        cleaned_content = self.content_cleaner.clean_content(content)
-        return cleaned_content
-
-    def generate_paragraphs(self, processed_files):
-        all_paragraphs = {}
-        for file, content in processed_files.items():
-            all_paragraphs.update(self._process_file_paragraphs(file, content))
-        return all_paragraphs
-
-    def _process_file_paragraphs(self, file, content):
-        sentences = [s.strip() for s in nltk.sent_tokenize(content) if s.strip()]
-        paragraphs = self._split_into_paragraphs(sentences)
-
-        return {f"{file}_normal": paragraphs}
-
-    def _split_into_paragraphs(self, sentences):
-        paragraphs = []
-        current_paragraph = []
-        word_count = 0
-        in_strikethrough = False
-
-        for sentence in sentences:
-            words = sentence.split()
-            current_strikethrough_count = sentence.count("~~")
-            
-            if current_strikethrough_count % 2 != 0:
-                in_strikethrough = not in_strikethrough
-
-            current_paragraph.append(sentence)
-            word_count += len(words)
-
-            if word_count > MAX_PARAGRAPH_LENGTH and not in_strikethrough:
-                paragraphs.append(" ".join(current_paragraph))
-                current_paragraph = []
-                word_count = 0
-
-        if current_paragraph:
-            paragraphs.append(" ".join(current_paragraph))
-
-        return paragraphs
 
     def process_paragraphs(self, paragraphs_dict):
         for file, paragraphs in paragraphs_dict.items():
@@ -127,18 +71,8 @@ class VideoEditorProcessor(BaseDataProcessor):
 
         strikethrough_percentage, _ = self._calculate_strikethrough_percentage(paragraph_data["output"])
 
-        if strikethrough_percentage < WORD_PERCENTAGE_THRESHOLD:
+        if strikethrough_percentage < self.WORD_PERCENTAGE_THRESHOLD:
             self._process_valid_paragraph(paragraph_data)
-
-    def _get_context_before(self, paragraphs, index):
-        if index > 0:
-            return self._extract_relevant_sentences_from_end(paragraphs[index - 1])
-        return ""
-
-    def _get_context_after(self, paragraphs, index):
-        if index < len(paragraphs) - 1:
-            return self._extract_relevant_sentences_from_start(paragraphs[index + 1])
-        return ""
 
     def _process_valid_paragraph(self, paragraph_data):
         merged_input = f"{paragraph_data['context_before']} {paragraph_data['input']} {paragraph_data['context_after']}".strip()
@@ -146,7 +80,7 @@ class VideoEditorProcessor(BaseDataProcessor):
 
         if self._is_valid_for_processing(merged_input, merged_output):
             self.append_data(
-                instruction=PROMPT,
+                instruction=self.PROMPT,
                 input_data=merged_input,
                 response=merged_output,
             )
@@ -182,6 +116,16 @@ class VideoEditorProcessor(BaseDataProcessor):
         cleaned_text = re.sub(r"~~(.*?)~~", "", text)
         cleaned_text = re.sub(r"\s+", " ", cleaned_text)
         return cleaned_text.strip()
+
+    def _get_context_before(self, paragraphs, index):
+        if index > 0:
+            return self._extract_relevant_sentences_from_end(paragraphs[index - 1])
+        return ""
+
+    def _get_context_after(self, paragraphs, index):
+        if index < len(paragraphs) - 1:
+            return self._extract_relevant_sentences_from_start(paragraphs[index + 1])
+        return ""
 
     def _extract_relevant_sentences_from_start(self, paragraph):
         return self._extract_relevant_sentences(paragraph, from_start=True)
