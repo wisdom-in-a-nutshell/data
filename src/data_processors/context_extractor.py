@@ -25,36 +25,43 @@ class ContextExtractor:
 
     def _get_context(self, paragraphs, index, is_before):
         if is_before and index > 0:
-            return self._extract_relevant_sentences(paragraphs[index - 1], from_start=False)
+            context = self._extract_relevant_sentences(paragraphs[index - 1], from_start=False)
+            if not self._extract_speaker_tag(context):
+                self.last_known_speaker = self.last_known_speaker
+            return context
         elif not is_before and index < len(paragraphs) - 1:
             return self._extract_relevant_sentences(paragraphs[index + 1], from_start=True)
         return ""
 
     def _extract_relevant_sentences(self, paragraph, from_start):
-        sentences = [self._remove_strikethrough_text(s) for s in nltk.sent_tokenize(paragraph)]
+        sentences = nltk.sent_tokenize(paragraph)
         if not from_start:
             sentences.reverse()
 
         relevant_sentences = []
         word_count = 0
-        context_speaker = self._extract_speaker_tag(paragraph) or self.last_known_speaker
+        context_speaker = None
 
         for sentence in sentences:
-            speaker = self._extract_speaker_tag(sentence)
-            if speaker:
-                context_speaker = speaker
+            cleaned_sentence = self._remove_strikethrough_text(sentence)
+            
+            if not context_speaker:
+                context_speaker = self._extract_speaker_tag(cleaned_sentence)
 
-            words = sentence.split()
-            relevant_sentences.append(sentence)
-            word_count += len(words)
+            relevant_sentences.append(cleaned_sentence)
+            word_count += len(cleaned_sentence.split())
 
             if word_count >= self.context_word_limit and len(relevant_sentences) > 1:
                 break
 
         result = " ".join(relevant_sentences if from_start else reversed(relevant_sentences))
         
+        # Add the speaker tag only if there isn't one at the beginning
         if not self._starts_with_speaker_tag(result):
-            result = f"**{context_speaker}:** {result}" if context_speaker else result
+            if context_speaker:
+                result = f"**{context_speaker}:** {result}"
+            elif self.last_known_speaker:
+                result = f"**{self.last_known_speaker}:** {result}"
 
         return result.strip()
 
@@ -73,3 +80,5 @@ class ContextExtractor:
         speakers = re.findall(r'\*\*(.*?):\*\*', paragraph)
         if speakers:
             self.last_known_speaker = speakers[-1]
+        elif self._extract_speaker_tag(paragraph):
+            self.last_known_speaker = self._extract_speaker_tag(paragraph)

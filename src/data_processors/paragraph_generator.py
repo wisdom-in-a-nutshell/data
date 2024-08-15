@@ -22,33 +22,39 @@ class ParagraphGenerator:
         paragraphs = []
         current_paragraph = []
         word_count = 0
-        in_strikethrough = False
         last_speaker = None
 
         for sentence in sentences:
             sentence_words = sentence.split()
             sentence_word_count = len(sentence_words)
 
-            # Check for speaker tag
-            speaker_match = re.match(r'\*\*(.*?):\*\*', sentence)
+            # Check for speaker tag anywhere in the sentence
+            speaker_match = re.search(r'\*\*(.*?):\*\*', sentence)
             if speaker_match:
                 last_speaker = speaker_match.group(1)
 
-            if word_count + sentence_word_count > self.max_paragraph_length and not in_strikethrough:
-                # Add the current paragraph to the list
+            # If starting a new paragraph, add the last known speaker
+            if not current_paragraph and last_speaker:
+                speaker_tag = f"**{last_speaker}:**"
+                current_paragraph.append(speaker_tag)
+                word_count = len(speaker_tag.split())
+
+            # Check if adding this sentence would exceed the max length
+            if word_count + sentence_word_count > self.max_paragraph_length:
+                # End the current paragraph
                 paragraphs.append(" ".join(current_paragraph))
-                # Start a new paragraph, adding the last known speaker if available
-                current_paragraph = []
-                if last_speaker and not sentence.startswith(f"**{last_speaker}:**"):
-                    current_paragraph.append(f"**{last_speaker}:**")
-                word_count = 0
+                # Start a new paragraph with the last known speaker
+                current_paragraph = [f"**{last_speaker}:**"] if last_speaker else []
+                word_count = len(current_paragraph[0].split()) if current_paragraph else 0
 
             current_paragraph.append(sentence)
             word_count += sentence_word_count
 
-            current_strikethrough_count = sentence.count("~~")
-            if current_strikethrough_count % 2 != 0:
-                in_strikethrough = not in_strikethrough
+            # If the current sentence alone exceeds the limit, force a paragraph break
+            if sentence_word_count > self.max_paragraph_length:
+                paragraphs.append(" ".join(current_paragraph))
+                current_paragraph = []
+                word_count = 0
 
         if current_paragraph:
             paragraphs.append(" ".join(current_paragraph))

@@ -75,14 +75,24 @@ class VideoEditorProcessor(BaseDataProcessor):
             self._process_valid_paragraph(paragraph_data)
 
     def _process_valid_paragraph(self, paragraph_data):
-        merged_input = f"{paragraph_data['context_before']} {paragraph_data['input']} {paragraph_data['context_after']}".strip()
-        merged_output = f"{paragraph_data['context_before']} {paragraph_data['output']} {paragraph_data['context_after']}".strip()
+        merged_input = paragraph_data['input']
+        merged_output = paragraph_data['output']
+
+        if self.STRIKETHROUGH_MARKER not in paragraph_data['context_before']:
+            merged_input = f"{paragraph_data['context_before']} {merged_input}"
+            merged_output = f"{paragraph_data['context_before']} {merged_output}"
+
+        if self.STRIKETHROUGH_MARKER not in paragraph_data['context_after']:
+            merged_input = f"{merged_input} {paragraph_data['context_after']}"
+            merged_output = f"{merged_output} {paragraph_data['context_after']}"
+
+        merged_input = merged_input.strip()
+        merged_output = merged_output.strip()
 
         print("\nInput:")
         print(textwrap.fill(merged_input, width=160))
         print("\nOutput:")
         print(textwrap.fill(merged_output, width=160))
-
 
         if self._is_valid_for_processing(merged_input, merged_output):
             self.append_data(
