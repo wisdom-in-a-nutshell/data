@@ -88,7 +88,7 @@ class VideoEditorProcessor(BaseDataProcessor):
 
 
 
-        if strikethrough_percentage > 40:
+        if strikethrough_percentage > 40 and False:
             print("<raw_transcript>")
             print(textwrap.fill(merged_input, width=80))
             print("</raw_transcript>")
@@ -134,9 +134,9 @@ class VideoEditorProcessor(BaseDataProcessor):
 
 if __name__ == "__main__":
     # Example usage
-    test_folder_path = "/Users/adi/Documents/GitHub/data/editor/original"
+    test_folder_path = "/Users/adi/Documents/GitHub/data/tmp/original"
     date = datetime.now().strftime("%b%d_%H").lower()
-    file_path = f"/Users/adi/Documents/GitHub/data/editor/finetune/editor_{date}.jsonl"
+    file_path = f"/Users/adi/Documents/GitHub/data/tmp/finetuning_file/editor_{date}.jsonl"
 
     processor = VideoEditorProcessor(
         input_folder=test_folder_path,

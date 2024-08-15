@@ -17,13 +17,7 @@ class BaseDataProcessor(ABC):
         return {"instruction": str(instruction), "input": str(input_data), "response": str(response)}
 
     @staticmethod
-    def format_data_jsonl(data, huggingface_format=False):
-        if huggingface_format:
-            return {
-                "instruction": data["instruction"],
-                "input": data["input"],
-                "output": data["response"]
-            }
+    def format_data_jsonl(data):
         return {
             "messages": [
                 {"role": "system", "content": data["instruction"]},
@@ -41,10 +35,10 @@ class BaseDataProcessor(ABC):
                 return
         self.data_list.append(formatted_data)
 
-    def generate_jsonl(self, file_path, huggingface_format=False):
+    def generate_jsonl(self, file_path):
         with open(file_path, 'w') as f:
             for data in self.data_list:
-                formatted_data = self.format_data_jsonl(data, huggingface_format)
+                formatted_data = self.format_data_jsonl(data)
                 json.dump(formatted_data, f)
                 f.write('\n')
 

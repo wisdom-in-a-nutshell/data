@@ -18,3 +18,4 @@ Thumbs.db
 # Ignore the entire @editor directory
 
 /editor/
+/tmp/
