@@ -72,11 +72,11 @@ class VideoEditorProcessor(BaseDataProcessor):
         strikethrough_percentage, _ = self._calculate_strikethrough_percentage(paragraph_data["output"])
         if strikethrough_percentage < self.WORD_PERCENTAGE_THRESHOLD:
             # print(f"Strikethrough percentage: {strikethrough_percentage}")
-            self._process_valid_paragraph(paragraph_data)
+            self._process_valid_paragraph(paragraph_data, strikethrough_percentage)
 
-    def _process_valid_paragraph(self, paragraph_data):
-        merged_input = paragraph_data['input']
-        merged_output = paragraph_data['output']
+    def _process_valid_paragraph(self, paragraph_data, strikethrough_percentage):
+        merged_input = paragraph_data['input'].strip()
+        merged_output = paragraph_data['output'].strip()
 
         if self.STRIKETHROUGH_MARKER not in paragraph_data['context_before']:
             merged_input = f"{paragraph_data['context_before']} {merged_input}"
@@ -86,13 +86,17 @@ class VideoEditorProcessor(BaseDataProcessor):
             merged_input = f"{merged_input} {paragraph_data['context_after']}"
             merged_output = f"{merged_output} {paragraph_data['context_after']}"
 
-        merged_input = merged_input.strip()
-        merged_output = merged_output.strip()
 
-        print("\nInput:")
-        print(textwrap.fill(merged_input, width=160))
-        print("\nOutput:")
-        print(textwrap.fill(merged_output, width=160))
+
+        if strikethrough_percentage > 40:
+            print("<raw_transcript>")
+            print(textwrap.fill(merged_input, width=80))
+            print("</raw_transcript>")
+
+            print("<edited_transcript>")
+            print(textwrap.fill(merged_output, width=80))
+            print("</edited_transcript>")
+
 
         if self._is_valid_for_processing(merged_input, merged_output):
             self.append_data(
