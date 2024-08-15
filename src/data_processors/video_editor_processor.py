@@ -1,18 +1,19 @@
 import re
 from datetime import datetime
+import textwrap
 import nltk
 from src.data_processors.base_processor import BaseDataProcessor
+from src.data_processors.context_extractor import ContextExtractor
 from src.data_processors.file_processor import FileProcessor
 from src.data_processors.paragraph_generator import ParagraphGenerator
-from src.utils.file_utils import ensure_dir
 
 nltk.download("punkt", quiet=True)
 
+
 class VideoEditorProcessor(BaseDataProcessor):
     # Constants
-    WORD_PERCENTAGE_THRESHOLD = 90
+    WORD_PERCENTAGE_THRESHOLD = 60
     MAX_WORDS_PER_PARAGRAPH = 12000
-    CONTEXT_WORD_LIMIT = 20
     STRIKETHROUGH_MARKER = "~~"
 
     PROMPT = """
@@ -44,6 +45,7 @@ class VideoEditorProcessor(BaseDataProcessor):
         self.input_folder = input_folder
         self.file_processor = FileProcessor(input_folder)
         self.paragraph_generator = ParagraphGenerator()
+        self.context_extractor = ContextExtractor()
 
     def process_data(self):
         processed_files = self.file_processor.process_and_clean_files()
@@ -55,29 +57,32 @@ class VideoEditorProcessor(BaseDataProcessor):
             print(f"Processing file: {file}")
             print(f"The number of paragraphs is: {len(paragraphs)}")
             
-            for i, paragraph in enumerate(paragraphs):
-                self._process_single_paragraph(paragraphs, i)
+            context_data = self.context_extractor.extract_context(paragraphs)
+            for paragraph_context in context_data:
+                self._process_single_paragraph(paragraph_context)
 
-    def _process_single_paragraph(self, paragraphs, index):
-        paragraph = paragraphs[index]
-        context_before = self._get_context_before(paragraphs, index)
-        context_after = self._get_context_after(paragraphs, index)
-
+    def _process_single_paragraph(self, paragraph_context):
         paragraph_data = {
-            "input": self._clean_strikethrough(paragraph),
-            "output": paragraph.strip(),
-            "context_before": context_before,
-            "context_after": context_after,
+            "input": self._clean_strikethrough(paragraph_context["paragraph"]),
+            "output": paragraph_context["paragraph"].strip(),
+            "context_before": paragraph_context["context_before"],
+            "context_after": paragraph_context["context_after"],
         }
 
         strikethrough_percentage, _ = self._calculate_strikethrough_percentage(paragraph_data["output"])
-
         if strikethrough_percentage < self.WORD_PERCENTAGE_THRESHOLD:
+            # print(f"Strikethrough percentage: {strikethrough_percentage}")
             self._process_valid_paragraph(paragraph_data)
 
     def _process_valid_paragraph(self, paragraph_data):
         merged_input = f"{paragraph_data['context_before']} {paragraph_data['input']} {paragraph_data['context_after']}".strip()
         merged_output = f"{paragraph_data['context_before']} {paragraph_data['output']} {paragraph_data['context_after']}".strip()
+
+        print("\nInput:")
+        print(textwrap.fill(merged_input, width=160))
+        print("\nOutput:")
+        print(textwrap.fill(merged_output, width=160))
+
 
         if self._is_valid_for_processing(merged_input, merged_output):
             self.append_data(
@@ -112,50 +117,6 @@ class VideoEditorProcessor(BaseDataProcessor):
 
         percentage = round((strikethrough_word_count / total_word_count) * 100, 2)
         return percentage, total_word_count
-
-    def _remove_strikethrough_text(self, text):
-        cleaned_text = re.sub(rf"{self.STRIKETHROUGH_MARKER}(.*?){self.STRIKETHROUGH_MARKER}", "", text)
-        cleaned_text = re.sub(r"\s+", " ", cleaned_text)
-        return cleaned_text.strip()
-
-    def _get_context_before(self, paragraphs, index):
-        if index > 0:
-            return self._extract_relevant_sentences_from_end(paragraphs[index - 1])
-        return ""
-
-    def _get_context_after(self, paragraphs, index):
-        if index < len(paragraphs) - 1:
-            return self._extract_relevant_sentences_from_start(paragraphs[index + 1])
-        return ""
-
-    def _extract_relevant_sentences_from_start(self, paragraph):
-        return self._extract_relevant_sentences(paragraph, from_start=True)
-
-    def _extract_relevant_sentences_from_end(self, paragraph):
-        return self._extract_relevant_sentences(paragraph, from_start=False)
-
-    def _extract_relevant_sentences(self, paragraph, from_start=True):
-        sentences = nltk.sent_tokenize(paragraph)
-        cleaned_sentences = [self._remove_strikethrough_text(sentence) for sentence in sentences]
-        
-        if not from_start:
-            cleaned_sentences = reversed(cleaned_sentences)
-
-        relevant_sentences = []
-        word_count = 0
-        
-        for sentence in cleaned_sentences:
-            words = sentence.split()
-            if from_start:
-                relevant_sentences.append(sentence)
-            else:
-                relevant_sentences.insert(0, sentence)
-            
-            if word_count + len(words) > self.CONTEXT_WORD_LIMIT:
-                break
-            word_count += len(words)
-        
-        return " ".join(relevant_sentences)
 
 if __name__ == "__main__":
     # Example usage
