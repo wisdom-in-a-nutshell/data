@@ -12,7 +12,7 @@ nltk.download("punkt", quiet=True)
 
 class VideoEditorProcessor(BaseDataProcessor):
     # Constants
-    WORD_PERCENTAGE_THRESHOLD = 60
+    WORD_PERCENTAGE_THRESHOLD = 55
     MAX_WORDS_PER_PARAGRAPH = 12000
     STRIKETHROUGH_MARKER = "~~"
 
@@ -46,11 +46,13 @@ class VideoEditorProcessor(BaseDataProcessor):
         self.file_processor = FileProcessor(input_folder)
         self.paragraph_generator = ParagraphGenerator()
         self.context_extractor = ContextExtractor()
+        self.total_paragraphs_processed = 0
 
     def process_data(self):
         processed_files = self.file_processor.process_and_clean_files()
         paragraphs_dict = self.paragraph_generator.generate_paragraphs(processed_files)
         self.process_paragraphs(paragraphs_dict)
+        print(f"Total paragraphs processed: {self.total_paragraphs_processed}")
 
     def process_paragraphs(self, paragraphs_dict):
         for file, paragraphs in paragraphs_dict.items():
@@ -88,14 +90,27 @@ class VideoEditorProcessor(BaseDataProcessor):
 
 
 
-        if strikethrough_percentage > 40 and False:
-            print("<raw_transcript>")
-            print(textwrap.fill(merged_input, width=80))
-            print("</raw_transcript>")
-
-            print("<edited_transcript>")
-            print(textwrap.fill(merged_output, width=80))
-            print("</edited_transcript>")
+        # if strikethrough_percentage > 40:
+        #     print("<raw_transcript>")
+        #     print(textwrap.fill(merged_input, width=160))
+        #     print("</raw_transcript>")
+        #
+        #     print("<edited_transcript>")
+        #     print(textwrap.fill(merged_output, width=160))
+        #     print("</edited_transcript>")
+        #
+        #     print("------------------------------------------------------")
+        #
+        #     print("<raw_transcript>")
+        #     print(merged_input)
+        #     print("</raw_transcript>")
+        #
+        #     print("<edited_transcript>")
+        #     print(merged_output)
+        #     print("</edited_transcript>")
+        #
+        #     print(f"strikethrough_percentage : {strikethrough_percentage}")
+        #     print("------------------------------------------------------")
 
 
         if self._is_valid_for_processing(merged_input, merged_output):
@@ -104,6 +119,7 @@ class VideoEditorProcessor(BaseDataProcessor):
                 input_data=merged_input,
                 response=merged_output,
             )
+            self.total_paragraphs_processed += 1
 
     def _is_valid_for_processing(self, merged_input, merged_output):
         total_words_merged_input = len(merged_input.split())
@@ -142,4 +158,4 @@ if __name__ == "__main__":
         input_folder=test_folder_path,
     )
     processor.process_data()
-    processor.generate_jsonl(file_path, huggingface_format=False)
+    processor.generate_jsonl(file_path)

@@ -26,13 +26,8 @@ class BaseDataProcessor(ABC):
             ]
         }
 
-    def append_data(self, instruction, input_data, response, token_limit=None):
+    def append_data(self, instruction, input_data, response):
         formatted_data = BaseDataProcessor.format_data(instruction, input_data, response)
-        formatted_data_in_jsonl = BaseDataProcessor.format_data_jsonl(formatted_data)
-        if token_limit is not None:
-            if not self.check_token_count(json.dumps(formatted_data_in_jsonl), token_limit):
-                logging.warning(f"Data with instruction {instruction} exceeds token limit. Skipping.")
-                return
         self.data_list.append(formatted_data)
 
     def generate_jsonl(self, file_path):
@@ -41,9 +36,3 @@ class BaseDataProcessor(ABC):
                 formatted_data = self.format_data_jsonl(data)
                 json.dump(formatted_data, f)
                 f.write('\n')
-
-    @staticmethod
-    def check_token_count(text, token_limit):
-        # Implement token counting logic here
-        # For simplicity, we'll use a basic word count method
-        return len(text.split()) <= token_limit
