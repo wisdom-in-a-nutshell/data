@@ -140,7 +140,7 @@ I'm looking at a transcript of a podcast discussing machine learning concepts, p
 </initial_analysis>
 
 <editing_goals>
-Based on the differences between the raw and edited versions, my editing goals are:
+My editing goals are:
 1. Remove filler words and phrases (like "um", "uh", "you know")
 2. Eliminate unnecessary repetitions
 3. Streamline long, rambling sentences

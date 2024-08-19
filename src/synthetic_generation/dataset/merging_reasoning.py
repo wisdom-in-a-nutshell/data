@@ -2,7 +2,6 @@ import json
 import logging
 import xml.etree.ElementTree as ET
 
-
 PROMPT = """You are an AI assistant specialized in refining podcast transcripts for optimal video editing. Your primary task is to analyze raw transcripts and provide two outputs in a specific JSON format:
 
 1. A detailed chain of thought explaining your editing process.
@@ -59,6 +58,7 @@ Chain of Thought Sections:
 - Ensure all string values are properly escaped for valid JSON.
 """
 
+
 class ConversationParser:
     def __init__(self, input_file_path, output_file_path):
         self.input_file_path = input_file_path
@@ -68,7 +68,7 @@ class ConversationParser:
 
     def parse_conversations(self):
         self.logger.info(f"Parsing conversations from {self.input_file_path}")
-        
+
         with open(self.input_file_path, 'r') as input_file, open(self.output_file_path, 'w') as output_file:
             for line in input_file:
                 try:
@@ -119,7 +119,7 @@ class ConversationParser:
             self.logger.error("Failed to create valid JSON from merged content")
         except Exception as e:
             self.logger.error(f"Error processing conversation: {str(e)}")
-        
+
         return None
 
     def xml_to_json(self, element):
@@ -131,9 +131,10 @@ class ConversationParser:
                 result[child.tag] = self.xml_to_json(child)
         return result
 
+
 # Example usage
 if __name__ == "__main__":
-    input_file_path = "/Users/adi/Documents/GitHub/data/tmp/finetuning_file/combined.jsonl"
-    output_file_path = "/Users/adi/Documents/GitHub/data/tmp/finetuning_file/processed_combined.jsonl"
+    input_file_path = "/tmp/finetuning_file/combined.jsonl"
+    output_file_path = "/tmp/finetuning_file/processed_combined.jsonl"
     parser = ConversationParser(input_file_path, output_file_path)
     parser.parse_conversations()
