@@ -67,7 +67,7 @@ EDITING_PROMPT = {
     "Speaker annotations (**<speaker>:**) must always be preserved."
   ]
 }
-class ConversationParser:
+class SplitReasoningEditing:
     def __init__(self, input_file_path, reasoning_output_file_path, edited_transcript_output_file_path):
         self.input_file_path = input_file_path
         self.reasoning_output_file_path = reasoning_output_file_path
@@ -107,9 +107,16 @@ class ConversationParser:
 
             reasoning_json = self.get_reasoning_json(reasoning_message['content'])
             reasoning_json_string = json.dumps(reasoning_json)
-            # if "Based on the differences between the raw and edited versions" in reasoning_json_string:
-            #     reasoning_json_string = reasoning_json_string.replace("Based on the differences between the raw and edited versions", "")
+            replace_strings = [
+                "Based on the differences between the raw and edited versions, ",
+                "Based on the differences between the raw and edited transcripts, ",
+                "Based on the differences I see between the raw and edited versions, ",
+                "Based on the minimal differences between the raw and edited versions, "
+            ]
 
+            for replace_string in replace_strings:
+                if replace_string in reasoning_json_string:
+                    reasoning_json_string = reasoning_json_string.replace(replace_string, "")
 
             raw_transcript = input_message['content']
             edited_transcript = output_message['content']
@@ -180,7 +187,7 @@ class ConversationParser:
             "chain_of_thought": reasoning_json_string,
             "instructions": (
                 "Please apply the above chain of thought reasoning to edit the raw transcript provided. "
-                "Follow the instructions in the system prompt, particularly regarding the use of strikethrough for marking removals and preserving the original order of the text. Return output in a JSON format with edited_transcript as the key."
+                "Follow the original instructions earlier, particularly regarding the use of strikethrough for marking removals and preserving the original order of the text. Return output in a JSON format with edited_transcript as the key."
             )
         }
         edited_transcript_content = {
@@ -199,8 +206,8 @@ class ConversationParser:
 # Example usage
 if __name__ == "__main__":
     input_file_path = "/Users/adi/Documents/GitHub/data/tmp/finetuning_file/combined.jsonl"
-    reasoning_output_file_path = "/Users/adi/Documents/GitHub/data/tmp/finetuning_file/reasoning_output.jsonl"
-    edited_transcript_output_file_path = "/Users/adi/Documents/GitHub/data/tmp/finetuning_file/edited_transcript_output.jsonl"
-    parser = ConversationParser(input_file_path, reasoning_output_file_path, edited_transcript_output_file_path)
+    reasoning_output_file_path = "/tmp/finetuning_file/reasoning_aug19.jsonl"
+    edited_transcript_output_file_path = "/tmp/finetuning_file/editing_aug19.jsonl"
+    parser = SplitReasoningEditing(input_file_path, reasoning_output_file_path, edited_transcript_output_file_path)
     parser.parse_conversations()
 
